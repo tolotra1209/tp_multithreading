@@ -1,49 +1,87 @@
-import sys
-
-sys.path.append(".")
-
-from multiprocessing.managers import BaseManager
-from queue import Queue
+# boss.py
+import pickle
+import time
+from queue_manager import start_manager, stop_manager
 from task import Task
 
 
-class QueueManager(BaseManager):
-    pass
+class Boss:
+    def __init__(self, host="localhost", port=5000):
+        self.host = host
+        self.port = port
+        self.manager = None
+        self.task_queue = None
+        self.result_queue = None
 
+    def connect(self):
+        """Se connecte au manager"""
+        self.manager = start_manager(self.host, self.port)
+        self.task_queue = self.manager.get_task_queue()
+        self.result_queue = self.manager.get_result_queue()
+        print("Boss connecté au manager")
 
-def main():
-    # Enregistrement des files dans le manager
-    QueueManager.register("get_task_queue", callable=lambda: task_queue)
-    QueueManager.register("get_result_queue", callable=lambda: result_queue)
+    def create_tasks(self, num_tasks=5, size=1000):
+        """Crée et envoie des tâches"""
+        tasks = []
+        for i in range(num_tasks):
+            task = Task(f"task_{i:03d}", size=size)
+            tasks.append(task)
+            # Sérialisation de la tâche
+            self.task_queue.put(pickle.dumps(task))
+            print(f"Tâche {task.identifier} envoyée (taille: {size}x{size})")
+        return tasks
 
-    # Création des files
-    task_queue = Queue()
-    result_queue = Queue()
+    def collect_results(self, timeout=30):
+        """Collecte les résultats des tâches"""
+        results = []
+        start_time = time.time()
 
-    # Création du manager sur localhost, port 50000
-    manager = QueueManager(address=("", 50000), authkey=b"secret")
-    manager.start()
-    print("Boss started on port 50000")
+        while (
+            len(results) < self.task_queue.qsize() or time.time() - start_time < timeout
+        ):
+            try:
+                if not self.result_queue.empty():
+                    result_data = self.result_queue.get(timeout=1)
+                    result = pickle.loads(result_data)
+                    results.append(result)
+                    print(
+                        f"Résultat reçu: {result.identifier} "
+                        f"(temps: {result.time:.4f}s)"
+                    )
+            except Exception as e:
+                print(f"Erreur lors de la collecte: {e}")
+                break
 
-    # Récupération des files via le manager
-    tasks = manager.get_task_queue()
-    results = manager.get_result_queue()
+        return results
 
-    # Création et envoi de 10 tâches
-    for i in range(10):
-        t = Task(identifier=f"task-{i}", size=800)
-        tasks.put(t)
-        print(f"Boss added task {t.identifier} to queue")
-
-    # Récupération des résultats
-    for _ in range(10):
-        identifier, x, exec_time = results.get()
-        print(f"Boss received result from {identifier} in {exec_time:.4f}s")
-
-    # Arrêt du manager
-    manager.shutdown()
-    print("Boss finished")
+    def shutdown(self):
+        """Arrête le système"""
+        if self.manager:
+            stop_manager(self.manager)
+            print("Boss: système arrêté")
 
 
 if __name__ == "__main__":
-    main()
+    boss = Boss()
+
+    try:
+        boss.connect()
+
+        # Créer des tâches
+        tasks = boss.create_tasks(num_tasks=3, size=800)
+
+        # Attendre et collecter les résultats
+        print("\nAttente des résultats...")
+        results = boss.collect_results(timeout=15)
+
+        # Afficher le résumé
+        print("\n=== RÉSUMÉ ===")
+        for result in results:
+            print(f"{result.identifier}: {result.time:.4f} secondes")
+
+        if results:
+            avg_time = sum(r.time for r in results) / len(results)
+            print(f"\nTemps moyen: {avg_time:.4f} secondes")
+
+    finally:
+        boss.shutdown()

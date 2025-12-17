@@ -7,7 +7,6 @@ from task import Task
 
 class TestTask(unittest.TestCase):
     def test_task_work_solves_linear_system(self):
-        """Vérifie que work() résout correctement Ax = B."""
         task = Task("test", size=5)
         task.work()
 
@@ -15,7 +14,6 @@ class TestTask(unittest.TestCase):
         assert_allclose(task.A @ task.x, task.B, rtol=1e-7, atol=1e-9)
 
     def test_json_serialization_roundtrip(self):
-        """Teste que to_json() et from_json() sont inverses."""
         t1 = Task("json-test", size=10)
         t1.work()
 
@@ -30,7 +28,6 @@ class TestTask(unittest.TestCase):
             assert_allclose(restored.A @ restored.x, restored.B, rtol=1e-7, atol=1e-9)
 
     def test_json_serialization_without_work(self):
-        """Teste la sérialisation avant appel à work()."""
         t1 = Task("no-work", size=15)
         json_str = t1.to_json()
         restored = Task.from_json(json_str)
@@ -44,7 +41,6 @@ class TestTask(unittest.TestCase):
             self.assertTrue(np.allclose(restored.x, np.zeros(15)))
 
     def test_equality_method(self):
-        """Teste la méthode __eq__."""
         t1 = Task("eq-test", size=8)
         t2 = Task("eq-test", size=8)
 
@@ -60,14 +56,12 @@ class TestTask(unittest.TestCase):
         self.assertNotEqual(t1, t2)
 
     def test_equality_with_different_types(self):
-        """Teste que __eq__ retourne False avec un type différent."""
         t1 = Task("type-test", size=5)
         self.assertNotEqual(t1, "not a task")
         self.assertNotEqual(t1, None)
         self.assertNotEqual(t1, 42)
 
     def test_json_structure(self):
-        """Vérifie que le JSON contient tous les champs attendus."""
         task = Task("struct-test", size=5)
         task.work()
 
