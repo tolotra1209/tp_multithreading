@@ -9,11 +9,12 @@ class Task:
         self.size = size
         self.A = np.random.rand(size, size)
         self.B = np.random.rand(size)
-        self.x = np.zeros((self.size))
+        # Initialiser x à None au lieu de zéros
+        self.x = None  # Changement ici
         self.time = 0
 
     def work(self):
-        start = time.time()
+        start = time.perf_counter()  # Utiliser perf_counter pour plus de précision
         self.x = np.linalg.solve(self.A, self.B)
         self.time = time.perf_counter() - start
 
@@ -23,7 +24,7 @@ class Task:
             "size": self.size,
             "A": self.A.tolist(),
             "B": self.B.tolist(),
-            "x": self.x.tolist(),
+            "x": self.x.tolist() if self.x is not None else None,  # Gérer None
             "time": self.time,
         }
         return json.dumps(data, indent=2)
@@ -37,7 +38,11 @@ class Task:
 
         task.A = np.array(data["A"])
         task.B = np.array(data["B"])
-        task.x = np.array(data["x"])
+        # Gérer le cas où x peut être None
+        if data["x"] is not None:
+            task.x = np.array(data["x"])
+        else:
+            task.x = None
         task.time = data["time"]
 
         return task
@@ -46,11 +51,27 @@ class Task:
         if not isinstance(other, Task):
             return False
 
-        return (
-            self.identifier == other.identifier
-            and self.size == other.size
-            and np.array_equal(self.A, other.A)
-            and np.array_equal(self.B, other.B)
-            and np.array_equal(self.x, other.x)
-            and self.time == other.time
-        )
+        # Vérifier les attributs simples
+        if self.identifier != other.identifier or self.size != other.size:
+            return False
+
+        # Vérifier A et B avec tolérance numérique
+        if not np.allclose(self.A, other.A, rtol=1e-10, atol=1e-12):
+            return False
+        if not np.allclose(self.B, other.B, rtol=1e-10, atol=1e-12):
+            return False
+
+        # Vérifier x (peut être None)
+        if self.x is None and other.x is None:
+            x_equal = True
+        elif self.x is None or other.x is None:
+            x_equal = False
+        else:
+            x_equal = np.allclose(self.x, other.x, rtol=1e-10, atol=1e-12)
+
+        if not x_equal:
+            return False
+
+        # Vérifier time avec tolérance
+        time_equal = abs(self.time - other.time) < 1e-9
+        return time_equal
