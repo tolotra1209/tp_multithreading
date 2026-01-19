@@ -14,12 +14,16 @@ print("Proxy démarré sur http://localhost:8000")
 
 print("\n=== Test GET ===")
 conn = http.client.HTTPConnection("localhost", 8000)
-conn.request("GET", "/")
-response = conn.getresponse()
-print(f"Status: {response.status}")
-data = response.read().decode()
-print(f"Données: {data[:100]}...")
-conn.close()
+try:
+    conn.request("GET", "/")
+    response = conn.getresponse()
+    print(f"Status: {response.status}")
+    data = response.read().decode()
+    print(f"Données: {data[:100]}...")
+except Exception as e:
+    print(f"Erreur GET: {e}")
+finally:
+    conn.close()
 
 print("\n=== Test POST ===")
 task = Task("http-test", 80)
@@ -27,14 +31,19 @@ task.work()
 task_json = task.to_json()
 
 conn = http.client.HTTPConnection("localhost", 8000)
-conn.request("POST", "/", task_json)
-response = conn.getresponse()
-print(f"Status: {response.status}")
-data = response.read().decode()
-print(f"Réponse: {data}")
-conn.close()
+try:
+    conn.request("POST", "/", task_json)
+    response = conn.getresponse()
+    print(f"Status: {response.status}")
+    data = response.read().decode()
+    print(f"Réponse: {data}")
+except Exception as e:
+    print(f"Erreur POST: {e}")
+finally:
+    conn.close()
 
 print("\n=== Arrêt du proxy ===")
-proxy_proc.terminate()
-proxy_proc.join()
+if proxy_proc.is_alive():
+    proxy_proc.terminate()
+    proxy_proc.join()
 print("Test terminé")
