@@ -23,8 +23,11 @@ class TestAll(unittest.TestCase):
         boss.join(timeout=5)
         minion.join(timeout=3)
 
-        boss.terminate()
-        minion.terminate()
+        # Toujours nettoyer les processus
+        if boss.is_alive():
+            boss.terminate()
+        if minion.is_alive():
+            minion.terminate()
 
         boss.join()
         minion.join()
